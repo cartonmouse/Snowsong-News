@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Protocol, Sequence
 from xml.etree import ElementTree
 
@@ -119,26 +120,77 @@ class MockNewsSource:
 class RssNewsSource:
     def __init__(self, timeout_seconds: float = 10) -> None:
         self.timeout_seconds = timeout_seconds
+        self.last_errors: dict[str, str] = {}
+        self.last_successful_feeds: tuple[str, ...] = ()
+
+    def _fetch_one(
+        self,
+        index: int,
+        feed: str,
+    ) -> tuple[int, str, list[NewsItem], str | None]:
+        try:
+            response = httpx.get(
+                feed,
+                timeout=self.timeout_seconds,
+                follow_redirects=True,
+                headers={"User-Agent": "news-agent/1.0 RSS reader"},
+            )
+            response.raise_for_status()
+            return index, feed, parse_feed(response.content, source=feed), None
+        except (httpx.HTTPError, NewsSourceError) as exc:
+            return index, feed, [], str(exc)
 
     def fetch(
         self,
         feeds: Sequence[str],
         limit: int = 20,
     ) -> list[NewsItem]:
-        if not feeds:
+        unique_feeds = tuple(dict.fromkeys(feed.strip() for feed in feeds if feed.strip()))
+        if not unique_feeds:
             raise NewsSourceError("no RSS feeds configured")
+        safe_limit = max(0, limit)
+        self.last_errors = {}
+        self.last_successful_feeds = ()
+        if safe_limit == 0:
+            return []
 
+        results: list[tuple[int, str, list[NewsItem], str | None]] = []
+        with ThreadPoolExecutor(max_workers=min(8, len(unique_feeds))) as executor:
+            futures = [
+                executor.submit(self._fetch_one, index, feed)
+                for index, feed in enumerate(unique_feeds)
+            ]
+            for future in as_completed(futures):
+                results.append(future.result())
+
+        results.sort(key=lambda result: result[0])
+        feed_items: list[list[NewsItem]] = []
+        successful_feeds: list[str] = []
+        for _, feed, items, error in results:
+            if error:
+                self.last_errors[feed] = error
+            else:
+                successful_feeds.append(feed)
+                feed_items.append(items)
+        self.last_successful_feeds = tuple(successful_feeds)
+
+        if not successful_feeds:
+            details = "; ".join(
+                f"{feed}: {error}" for feed, error in self.last_errors.items()
+            )
+            raise NewsSourceError(f"all RSS feeds failed: {details}")
+
+        # Round-robin the feeds so the next filtering step sees more than one source.
         items: list[NewsItem] = []
-        try:
-            with httpx.Client(
-                timeout=self.timeout_seconds,
-                follow_redirects=True,
-            ) as client:
-                for feed in feeds:
-                    response = client.get(feed)
-                    response.raise_for_status()
-                    items.extend(parse_feed(response.content, source=feed))
-        except httpx.HTTPError as exc:
-            raise NewsSourceError(f"RSS request failed: {exc}") from exc
-        return items[: max(0, limit)]
+        while len(items) < safe_limit:
+            added = False
+            for current_feed_items in feed_items:
+                if current_feed_items:
+                    items.append(current_feed_items.pop(0))
+                    added = True
+                    if len(items) >= safe_limit:
+                        break
+            if not added:
+                break
+        return items
 

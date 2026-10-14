@@ -44,6 +44,12 @@ class NewsBusinessTools:
                 "items": [],
                 "source_mode": self.news_service.mode,
                 "error": str(exc),
+                "feed_errors": dict(
+                    getattr(self.news_service.rss_source, "last_errors", {})
+                ),
+                "successful_feeds": list(
+                    getattr(self.news_service.rss_source, "last_successful_feeds", ())
+                ),
             }
         return {
             "ok": True,
@@ -51,6 +57,12 @@ class NewsBusinessTools:
             "count": len(items),
             "items": [item.to_dict() for item in items],
             "source_mode": self.news_service.last_source_mode,
+            "feed_errors": dict(
+                getattr(self.news_service.rss_source, "last_errors", {})
+            ),
+            "successful_feeds": list(
+                getattr(self.news_service.rss_source, "last_successful_feeds", ())
+            ),
         }
 
     def save_brief(

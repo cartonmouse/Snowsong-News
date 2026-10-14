@@ -2,7 +2,7 @@ import pytest
 
 from app.news.models import NewsItem
 from app.news.service import NewsService, filter_news
-from app.news.source import MockNewsSource, NewsSourceError, parse_feed
+from app.news.source import MockNewsSource, NewsSourceError, RssNewsSource, parse_feed
 
 
 def test_filter_news_ranks_matching_items() -> None:
@@ -34,6 +34,19 @@ def test_filter_news_supports_chinese_enumeration_separator() -> None:
     result = filter_news(items, query="RAG、Function Calling、OpenAI", limit=5)
 
     assert result == items
+
+
+def test_filter_news_expands_chinese_topics_to_english_terms() -> None:
+    item = NewsItem(
+        "A new large language model improves tool use",
+        "https://example.com/llm",
+        "The foundation model supports reliable function calling.",
+        "test",
+    )
+
+    result = filter_news([item], query="大语言模型", limit=5)
+
+    assert result == [item]
 
 
 def test_mock_news_service_returns_query_matches() -> None:
@@ -87,4 +100,41 @@ def test_rss_failure_can_be_returned_without_mock_fallback() -> None:
 
     with pytest.raises(NewsSourceError, match="feed unavailable"):
         service.fetch()
+
+
+def test_rss_source_keeps_successful_feeds_when_one_feed_fails(monkeypatch) -> None:
+    payload = b"""
+    <rss version="2.0"><channel>
+      <item>
+        <title>Working feed item</title>
+        <link>https://example.com/working</link>
+        <description>AI update.</description>
+      </item>
+    </channel></rss>
+    """
+
+    def fake_get(url: str, **kwargs):
+        if url.endswith("bad.xml"):
+            import httpx
+
+            raise httpx.ConnectError("offline", request=httpx.Request("GET", url))
+        import httpx
+
+        return httpx.Response(
+            200,
+            content=payload,
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr("app.news.source.httpx.get", fake_get)
+    source = RssNewsSource()
+
+    result = source.fetch(
+        ["https://example.com/bad.xml", "https://example.com/working.xml"],
+        limit=10,
+    )
+
+    assert [item.title for item in result] == ["Working feed item"]
+    assert "https://example.com/bad.xml" in source.last_errors
+    assert source.last_successful_feeds == ("https://example.com/working.xml",)
 
