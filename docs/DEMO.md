@@ -4,7 +4,7 @@
 
 1. 在项目根目录安装依赖。
 2. 复制 .env.example 为 .env。
-3. 保持默认的 Mock LLM 和 Mock 新闻源。
+3. 默认使用 Mock LLM 和真实 RSS 新闻源；如果需要完全离线、可重复的演示，在 `.env` 中临时设置 `NEWS_MODE=mock`。
 4. 启动服务：
 
     python -m uvicorn app.main:app --reload
@@ -63,5 +63,5 @@
 - Git 提交历史；
 - docs/ARCHITECTURE.md。
 
-最后强调：项目支持真实 LLM、RSS 和每日调度，但默认 Mock 模式可以无密钥完成演示。
+最后强调：项目默认可以直接读取内置 RSS 新闻源，也支持真实 LLM 和每日调度；Mock LLM 可以在没有 API Key 时完成演示，Mock 新闻源只适合离线测试。
 

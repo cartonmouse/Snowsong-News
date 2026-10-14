@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.news.defaults import DEFAULT_NEWS_FEEDS_VALUE
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -16,8 +18,8 @@ class Settings(BaseSettings):
     openai_base_url: str | None = None
     openai_api_key: str | None = None
     llm_model: str = "mock"
-    news_mode: str = "mock"
-    news_feeds: str = ""
+    news_mode: str = "rss"
+    news_feeds: str = DEFAULT_NEWS_FEEDS_VALUE
     news_timeout_seconds: int = 10
     news_fallback_to_mock: bool = False
     webhook_url: str | None = None

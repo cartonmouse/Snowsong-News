@@ -2,7 +2,7 @@
 
 ## 当前配置
 
-项目默认使用真实 RSS/Atom 新闻源，配置位于 `.env` 和 `.env.example` 的 `NEWS_FEEDS`。
+项目默认使用真实 RSS/Atom 新闻源。默认地址内置在 `app/news/defaults.py`，因此客户不配置 `.env` 也可以获取真实新闻；`.env` 中的 `NEWS_FEEDS` 只用于覆盖默认列表。
 每个地址用英文逗号分隔。单个新闻源超时、返回 403 或 XML 格式异常时，会记录在 `feed_errors`，不会阻断其他新闻源；只有全部新闻源失败时，才会返回错误。当前 `NEWS_FALLBACK_TO_MOCK=false`，因此不会用演示数据冒充真实新闻。
 
 ## 国际新闻源
@@ -46,7 +46,7 @@
 
 ## 运维建议
 
-1. 启动服务前确认 `NEWS_MODE=rss`。
+1. 默认启动即使用 `NEWS_MODE=rss`；只有离线演示时才改为 `mock`。
 2. 客户环境建议保留 `NEWS_FALLBACK_TO_MOCK=false`，这样 RSS 故障会明确显示，而不会产生误导内容。
-3. 如果某个来源长期失败，查看 `fetch_news` 返回的 `feed_errors`，再单独替换该 URL。
+3. 如果某个来源长期失败，查看 `fetch_news` 返回的 `feed_errors`，再通过 `.env` 覆盖 `NEWS_FEEDS`。
 4. 新增来源前先确认返回的是 RSS/Atom XML，而不是普通网页；可以用项目现有的 `parse_feed` 做验证。
