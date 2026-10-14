@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>News Agent</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #f5f7fb;
+      color: #1d2433;
+    }
+    body { margin: 0; }
+    main { max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { margin-bottom: 8px; }
+    .subtitle { color: #657087; margin-top: 0; }
+    .panel {
+      background: white;
+      border: 1px solid #dde3ee;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+      box-shadow: 0 8px 24px rgba(40, 55, 80, 0.06);
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+    input, textarea, button {
+      font: inherit;
+      border: 1px solid #cbd4e3;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    button { background: #315efb; color: white; border: 0; cursor: pointer; }
+    button.secondary { background: #64748b; }
+    .actions { display: flex; gap: 10px; margin-top: 16px; }
+    #status { color: #315efb; min-height: 24px; }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #f7f8fb;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .brief {
+      border-top: 1px solid #e5e9f1;
+      padding: 14px 0;
+    }
+    @media (max-width: 680px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>每日 AI 新闻助手</h1>
+    <p class="subtitle">配置订阅偏好，让 Agent 自主调用工具生成新闻简报。</p>
+
+    <section class="panel">
+      <h2>用户与订阅偏好</h2>
+      <form id="profile-form">
+        <div class="grid">
+          <label>姓名
+            <input id="name" required placeholder="例如：Alice">
+          </label>
+          <label>身份
+            <input id="role" placeholder="例如：AI 工程师">
+          </label>
+          <label>关注话题
+            <textarea id="topics" placeholder="Agent, 大模型"></textarea>
+          </label>
+          <label>关键词
+            <textarea id="keywords" placeholder="function calling, AI coding"></textarea>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit">保存偏好</button>
+          <button type="button" class="secondary" id="generate">立即生成简报</button>
+        </div>
+      </form>
+      <p id="status"></p>
+    </section>
+
+    <section class="panel">
+      <h2>本次简报</h2>
+      <pre id="brief-content">还没有生成简报。</pre>
+      <h3>Agent 工具调用轨迹</h3>
+      <pre id="trace">暂无记录。</pre>
+    </section>
+
+    <section class="panel">
+      <h2>历史简报</h2>
+      <div id="history">请先保存用户偏好。</div>
+    </section>
+  </main>
+
+  <script>
+    let userId = null;
+    const statusElement = document.getElementById("status");
+    const historyElement = document.getElementById("history");
+    const briefElement = document.getElementById("brief-content");
+    const traceElement = document.getElementById("trace");
+
+    function splitValues(value) {
+      return value.split(/[,，\n]/).map(item => item.trim()).filter(Boolean);
+    }
+
+    async function request(path, options) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.detail || "请求失败");
+      }
+      return body;
+    }
+
+    async function loadHistory() {
+      if (!userId) return;
+      const body = await request("/api/users/" + userId + "/briefs");
+      historyElement.textContent = "";
+      if (!body.items.length) {
+        historyElement.textContent = "暂无历史简报。";
+        return;
+      }
+      body.items.forEach(item => {
+        const section = document.createElement("article");
+        section.className = "brief";
+        const title = document.createElement("h3");
+        title.textContent = item.title;
+        const content = document.createElement("pre");
+        content.textContent = item.content;
+        section.append(title, content);
+        historyElement.append(section);
+      });
+    }
+
+    document.getElementById("profile-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      try {
+        statusElement.textContent = "正在保存...";
+        const user = await request("/api/users", {
+          method: "POST",
+          body: JSON.stringify({
+            name: document.getElementById("name").value,
+            role: document.getElementById("role").value
+          })
+        });
+        userId = user.id;
+        await request("/api/users/" + userId + "/subscription", {
+          method: "PUT",
+          body: JSON.stringify({
+            topics: splitValues(document.getElementById("topics").value),
+            keywords: splitValues(document.getElementById("keywords").value),
+            sources: [],
+            push_channel: "history"
+          })
+        });
+        statusElement.textContent = "偏好已保存，用户 ID：" + userId;
+        await loadHistory();
+      } catch (error) {
+        statusElement.textContent = error.message;
+      }
+    });
+
+    document.getElementById("generate").addEventListener("click", async () => {
+      if (!userId) {
+        statusElement.textContent = "请先保存用户偏好。";
+        return;
+      }
+      try {
+        statusElement.textContent = "Agent 正在工作...";
+        const result = await request("/api/users/" + userId + "/generate", {
+          method: "POST"
+        });
+        briefElement.textContent = result.content || result.error || "没有返回内容。";
+        traceElement.textContent = JSON.stringify(result.trace, null, 2);
+        statusElement.textContent = "生成完成，状态：" + result.status;
+        await loadHistory();
+      } catch (error) {
+        statusElement.textContent = error.message;
+      }
+    });
+  </script>
+</body>
+</html>
+
