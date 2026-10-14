@@ -38,6 +38,14 @@
 
 ## 5 分钟启动
 
+### 获取项目
+
+```powershell
+git clone https://github.com/cartonmouse/Snowsong-News.git .
+```
+
+普通 `git clone` 会同时获取仓库的 Git 提交历史。
+
 ### 环境要求
 
 - Python 3.11 或更高版本
