@@ -59,6 +59,8 @@ class NewsRepository:
         push_channel: str = "history",
     ) -> Subscription:
         with self.session_factory() as session:
+            if session.get(User, user_id) is None:
+                raise RepositoryError(f"user does not exist: {user_id}")
             subscription = session.scalar(
                 select(Subscription).where(Subscription.user_id == user_id)
             )
@@ -127,6 +129,14 @@ class NewsRepository:
             session.commit()
             session.refresh(brief)
             return brief
+
+    def list_users(self) -> list[User]:
+        with self.session_factory() as session:
+            return list(
+                session.scalars(
+                    select(User).order_by(User.id.asc())
+                )
+            )
 
     def list_briefs(self, user_id: int, limit: int = 20) -> list[Brief]:
         safe_limit = max(1, min(limit, 100))

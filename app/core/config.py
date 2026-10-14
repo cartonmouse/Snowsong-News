@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     tool_workspace_root: str = "data/agent_workspace"
     bash_timeout_seconds: int = 10
     tool_output_max_chars: int = 4000
+    scheduler_enabled: bool = False
+    schedule_hour: int = 8
+    schedule_minute: int = 0
+    schedule_timezone: str = "Asia/Shanghai"
     tool_workspace_root: str = "data/agent_workspace"
     bash_timeout_seconds: int = 10
     tool_output_max_chars: int = 4000

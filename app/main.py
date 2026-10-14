@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from app.api.routes import create_router
 from app.core.config import get_settings
+from app.scheduler import DailyScheduler
 from app.storage.database import Database
 
 
@@ -17,12 +18,17 @@ def create_app(
 ) -> FastAPI:
     settings = settings or get_settings()
     database = database or Database(settings.database_url)
+    scheduler = DailyScheduler(settings, database)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         database.migrate()
-        yield
-        database.close()
+        scheduler.start()
+        try:
+            yield
+        finally:
+            scheduler.stop()
+            database.close()
 
     application = FastAPI(
         title=settings.app_name,
