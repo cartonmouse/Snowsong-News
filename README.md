@@ -10,9 +10,7 @@
 
 <p>
   <a href="docs/ARCHITECTURE.md">架构说明</a> ·
-  <a href="docs/NEWS_SOURCES.md">新闻源说明</a> ·
-  <a href="docs/DEMO.md">3 分钟演示</a> ·
-  <a href="docs/INTERVIEW.md">面试准备</a>
+  <a href="docs/NEWS_SOURCES.md">新闻源说明</a>
 </p>
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg)
