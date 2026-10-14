@@ -2,7 +2,7 @@
 
 <img src="assets/news-agent-icon.png" alt="News Agent 项目图标" width="180" />
 
-# News Agent
+# Snowsong-News Agent
 
 **一个会主动调用工具、聚合真实新闻源并生成个性化简报的 AI 新闻助手。**
 
@@ -21,45 +21,20 @@
 
 </div>
 
-## 这是什么
-
-很多新闻工具只能展示固定的信息流，用户需要自己翻阅、筛选和整理。News Agent 的目标是把这条链路交给 Agent：用户只需要告诉它自己的身份、关注话题和关键词，系统就会从配置的新闻源中获取内容，筛选相关报道，生成简报并保存到历史记录。
-
-这个项目是一个面向笔试题的可运行实现，也可以作为轻量级 AI Agent、RSS 聚合和 Function Calling 的学习样例。
+#### **输入你想看的新闻主题，Agent帮你搜集并展示**
 
 ## 功能闭环
 
 | 环节 | 能力 |
 | --- | --- |
 | 用户画像 | 填写姓名、身份和订阅偏好 |
-| 中文订阅 | 输入中文主题，匹配英文新闻表达 |
 | 新闻获取 | 并发读取国内外 RSS/Atom 新闻源 |
 | Agent 决策 | LLM 自主选择工具、调用次数和结束时机 |
 | 简报生成 | 汇总标题、摘要、来源和原文链接 |
 | 历史记录 | 将简报、运行状态和工具轨迹写入 SQLite |
 | 交付 | 默认保存到网页历史，可选 Webhook |
-| 自动化 | 支持 APScheduler 每日定时运行 |
 
-### 中文输入也能匹配英文新闻
 
-客户可以直接输入中文，不需要先把所有关键词翻译成英文：
-
-| 中文输入 | 内置英文扩展 |
-| --- | --- |
-| 大语言模型 | `LLM`、`large language model`、`foundation model` |
-| 人工智能 | `AI`、`artificial intelligence` |
-| 智能体 | `AI agent`、`agentic AI`、`agents` |
-| 函数调用 | `function calling`、`tool calling`、`tool use` |
-| 检索增强生成 | `RAG`、`retrieval augmented generation` |
-| 多模态 | `multimodal`、`vision-language` |
-| 芯片 | `chip`、`semiconductor`、`GPU` |
-| 科技股票 | `AI stocks`、`tech stocks`、`stock market`、`earnings` |
-
-网页支持英文逗号、中文逗号、顿号和换行作为分隔符，例如：
-
-```text
-大语言模型、RAG、DeepSeek、科技股票
-```
 
 ## 5 分钟启动
 
@@ -158,49 +133,6 @@ LLM_MODEL=your-model
 
 如果真实 LLM 三项配置不完整，当前工厂会回退到本地 `DemoNewsProvider`，方便演示；生产环境排查时应确认模型名、Base URL 和 Key 已生效。
 
-## Agent 如何工作
-
-核心约束是：工具调用顺序由 LLM 决定，而不是由业务代码写死。
-
-```text
-用户请求
-   │
-   ▼
-LLM + 工具 Schema
-   │
-   ├── 返回最终答案 ───────────────┐
-   │                              │
-   └── 返回一个或多个 tool_calls    │
-          │                       │
-          ▼                       │
-      ToolRegistry                │
-          │                       │
-          ▼                       │
-      工具执行结果 ──回到消息上下文─┘
-```
-
-每一轮 Agent 都会把当前消息和工具 Schema 交给 LLM。LLM 可以自主决定先读取偏好、先获取新闻、重复调用工具，或者直接结束。`MAX_AGENT_STEPS` 用于限制最大循环次数，避免无限调用。
-
-### 题目要求的通用工具
-
-| 工具 | 实现位置 | 作用 |
-| --- | --- | --- |
-| `list_dir(path)` | `app/tools/filesystem.py` | 列出工作区目录 |
-| `read_file(path)` | `app/tools/filesystem.py` | 读取工作区文件 |
-| `search_content(keyword, dir)` | `app/tools/filesystem.py` | 按关键词搜索文件内容 |
-| `write_file(path, content)` | `app/tools/filesystem.py` | 写入工作区文件 |
-| `bash(command)` | `app/tools/shell.py` | 执行受限制的 Shell 命令 |
-
-文件工具限制在 `data/agent_workspace` 内；Shell 工具限制可执行程序、危险命令、工作目录、超时时间和输出长度。
-
-### 新闻业务工具
-
-| 工具 | 作用 |
-| --- | --- |
-| `get_user_preferences` | 读取用户身份和订阅偏好 |
-| `fetch_news` | 获取并筛选 RSS/Mock 新闻 |
-| `save_brief` | 保存新闻简报 |
-| `deliver_brief` | 交付到历史记录或 Webhook |
 
 ## 技术架构
 
@@ -304,59 +236,8 @@ python -m pytest
 
 当前版本测试覆盖 Agent 动态工具顺序、工具异常、最大步数、API 端到端流程、RSS 解析、中文关键词扩展、部分新闻源失败、数据库、Shell 安全限制和调度器。
 
-## 题目要求映射
-
-| 题目要求 | 本项目实现 |
-| --- | --- |
-| Python | FastAPI + Python 3.11+ |
-| 至少 5 个工具 | `list_dir`、`read_file`、`search_content`、`write_file`、`bash` |
-| 工具顺序由 LLM 决定 | `AgentRunner` 根据 `tool_calls` 动态循环，不写死线性流程 |
-| 用户订阅偏好 | 网页填写身份、话题和关键词，保存到 SQLite |
-| 简单前端 | `app/web/index.html` 提供保存、生成、历史和轨迹查看 |
-| 新闻来源 | RSS/Atom 多源读取，内置国内外来源 |
-| 个性化简报 | 关键词筛选后生成标题、摘要、来源和链接 |
-| Git 版本管理 | 保留完整提交历史，提交说明使用中文 |
-| 密钥不硬编码 | `.env` 环境变量，`.env` 不提交 Git |
-| 依赖清单 | `requirements.txt` |
-| 数据库建表脚本 | `migrations/001_initial.sql` |
-| 可运行交付 | FastAPI 服务、网页、API、测试和运行文档 |
-
-## 常见问题
-
-### 页面显示“今天没有匹配到新闻”
-
-这可能是关键词没有命中，而不一定是 RSS 失败。先尝试 `AI、人工智能、大语言模型`，再查看网页中的 Agent 工具调用轨迹，确认 `successful_feeds` 和 `feed_errors`。
-
-### 出现 `401 Authorization Required`
-
-说明后端已经请求 LLM，但 API Key 未通过认证。检查 `OPENAI_BASE_URL`、`OPENAI_API_KEY` 和 `LLM_MODEL`，并确认修改 `.env` 后已经重启后端。不要把完整 API Key 发给他人。
-
-### 出现 `WinError 10048`
-
-说明 8000 端口已被占用。可以停止属于本项目的旧 Uvicorn 进程，或改用 8001。使用 `--reload` 时可能存在父子进程，结束进程前应先确认进程归属。
-
-### 修改 `.env` 后页面没有变化
-
-`.env` 在后端启动时读取。修改后请按 `Ctrl+C` 停止服务，再重新执行启动命令；只刷新网页不会重载后端配置。
-
 ## 文档
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)：系统分层、Agent 循环和失败处理。
 - [`docs/NEWS_SOURCES.md`](docs/NEWS_SOURCES.md)：内置 RSS 来源、中文检索和来源排障。
-- [`docs/DEMO.md`](docs/DEMO.md)：3 分钟演示脚本。
-- [`docs/INTERVIEW.md`](docs/INTERVIEW.md)：面试问题准备。
-
-## 安全边界与已知限制
-
-- `.env` 中的 API Key 不应提交、截图或写入文档；
-- RSS 内容来自第三方站点，使用者应打开原文核验重要信息；
-- SQLite 适合本地演示和小规模使用，生产环境需要评估更强的数据库；
-- RSS 来源可能因网络、403、频率限制或地址变更而失效；
-- 当前未提供用户登录认证，公开部署前需要补充认证、HTTPS、限流和日志脱敏；
-- 当前未提供完整的新闻去重、缓存和发布时间排序策略；
-- 默认的 LLM 配置不完整时会回退到 Mock Provider，生产环境建议改为显式配置检查。
-
-## License
-
-当前仓库未单独声明开源许可证。如需公开分发，请根据部署和使用场景补充合适的 LICENSE 文件。
 
