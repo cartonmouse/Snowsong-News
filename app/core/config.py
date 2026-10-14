@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     llm_model: str = "mock"
     news_mode: str = "mock"
+    news_feeds: str = ""
+    news_timeout_seconds: int = 10
     webhook_url: str | None = None
     max_agent_steps: int = 8
     tool_workspace_root: str = "data/agent_workspace"
