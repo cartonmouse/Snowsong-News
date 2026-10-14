@@ -42,6 +42,7 @@ def run_news_agent(
             mode=settings.news_mode,
             feeds=feeds,
             timeout_seconds=settings.news_timeout_seconds,
+            fallback_to_mock=settings.news_fallback_to_mock,
         ),
         webhook_url=settings.webhook_url,
         timeout_seconds=settings.news_timeout_seconds,

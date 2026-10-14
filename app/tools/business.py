@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from app.news.service import NewsService
+from app.news.source import NewsSourceError
 from app.storage.repository import NewsRepository, RepositoryError
 from app.tools.base import ToolError
 
@@ -33,12 +34,23 @@ class NewsBusinessTools:
             raise ToolError(str(exc)) from exc
 
     def fetch_news(self, query: str = "", limit: int = 10) -> dict[str, Any]:
-        items = self.news_service.fetch(query=query, limit=limit)
+        try:
+            items = self.news_service.fetch(query=query, limit=limit)
+        except NewsSourceError as exc:
+            return {
+                "ok": False,
+                "query": query,
+                "count": 0,
+                "items": [],
+                "source_mode": self.news_service.mode,
+                "error": str(exc),
+            }
         return {
             "ok": True,
             "query": query,
             "count": len(items),
             "items": [item.to_dict() for item in items],
+            "source_mode": self.news_service.last_source_mode,
         }
 
     def save_brief(

@@ -1,6 +1,8 @@
+import pytest
+
 from app.news.models import NewsItem
 from app.news.service import NewsService, filter_news
-from app.news.source import MockNewsSource, parse_feed
+from app.news.source import MockNewsSource, NewsSourceError, parse_feed
 
 
 def test_filter_news_ranks_matching_items() -> None:
@@ -17,6 +19,21 @@ def test_filter_news_ranks_matching_items() -> None:
     result = filter_news(items, query="function calling", limit=5)
 
     assert [item.title for item in result] == ["Function calling update"]
+
+
+def test_filter_news_supports_chinese_enumeration_separator() -> None:
+    items = [
+        NewsItem(
+            "Open models improve function calling",
+            "https://example.com/1",
+            "A practical update for AI agents.",
+            "test",
+        ),
+    ]
+
+    result = filter_news(items, query="RAG、Function Calling、OpenAI", limit=5)
+
+    assert result == items
 
 
 def test_mock_news_service_returns_query_matches() -> None:
@@ -54,4 +71,20 @@ def test_mock_source_is_deterministic() -> None:
     second = source.fetch()
 
     assert first == second
+
+
+def test_rss_failure_can_be_returned_without_mock_fallback() -> None:
+    class FailingSource:
+        def fetch(self, feeds: list[str], limit: int = 20) -> list[NewsItem]:
+            raise NewsSourceError("feed unavailable")
+
+    service = NewsService(
+        mode="rss",
+        feeds=["https://example.com/feed.xml"],
+        rss_source=FailingSource(),
+        fallback_to_mock=False,
+    )
+
+    with pytest.raises(NewsSourceError, match="feed unavailable"):
+        service.fetch()
 

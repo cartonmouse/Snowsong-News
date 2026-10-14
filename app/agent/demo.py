@@ -28,14 +28,22 @@ class DemoNewsProvider:
         return None, {}
 
     @staticmethod
-    def _build_brief(items: list[dict[str, Any]]) -> str:
+    def _build_brief(
+        items: list[dict[str, Any]],
+        *,
+        source_mode: str = "mock",
+        error: str | None = None,
+    ) -> str:
+        source_label = "RSS" if source_mode.casefold() == "rss" else "Mock"
         lines = [
             "# 今日 AI 新闻简报",
             "",
-            "当前使用本地 Mock 新闻源生成演示内容。",
+            f"当前使用 {source_label} 新闻源生成内容。",
             "",
         ]
-        if not items:
+        if error:
+            lines.append(f"新闻源获取失败：{error}")
+        elif not items:
             lines.append("今天没有匹配到新闻。")
         else:
             for index, item in enumerate(items, start=1):
@@ -88,7 +96,17 @@ class DemoNewsProvider:
 
         if last_name == "fetch_news":
             items = payload.get("items", [])
-            self.brief_content = self._build_brief(items)
+            self.brief_content = self._build_brief(
+                items,
+                source_mode=payload.get("source_mode", "mock"),
+                error=(
+                    payload.get("error")
+                    if not payload.get("ok", True)
+                    else None
+                ),
+            )
+            if not payload.get("ok", True):
+                return LLMResponse(content=self.brief_content)
             return LLMResponse(
                 content="",
                 tool_calls=(

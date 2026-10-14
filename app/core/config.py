@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     news_mode: str = "mock"
     news_feeds: str = ""
     news_timeout_seconds: int = 10
+    news_fallback_to_mock: bool = False
     webhook_url: str | None = None
     max_agent_steps: int = 8
     tool_workspace_root: str = "data/agent_workspace"
