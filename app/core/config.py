@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     news_mode: str = "mock"
     webhook_url: str | None = None
     max_agent_steps: int = 8
+    tool_workspace_root: str = "data/agent_workspace"
+    bash_timeout_seconds: int = 10
+    tool_output_max_chars: int = 4000
+    tool_workspace_root: str = "data/agent_workspace"
+    bash_timeout_seconds: int = 10
+    tool_output_max_chars: int = 4000
 
 
 @lru_cache
